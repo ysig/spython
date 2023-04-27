@@ -1,6 +1,7 @@
-# spython : Making sbatch & python more user-friendly.
+# `spython` making sbatch & python more user-friendly :revolving_hearts:
 Do you still want to write `sbatch` files yourself?
-`spython` is meant to improve the experience of python users of Jean-Zay and is an alpha-development stage (optimal for a single user and now open to many).
+`spython` is meant to improve your user experience of python when working on Jean-Zay's slurm system.
+It is in an alpha-development stage (i.e. developed for a single user and now open to be tested and improved by many).
 
 ## Motivation
 Jean Zay is one of the coolest thing that has happened to France in terms of computing (optimized, well managed, abundant, open). Its support team is the best example of a French institution: extremely polite, trying to help you in everything and quick to answer (unfortunately not how French beaurocracy looks on average). 
