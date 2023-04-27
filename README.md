@@ -1,4 +1,4 @@
-# spython : Making sbatch more user-friendly for python users.
+# spython : Making sbatch & python more user-friendly.
 Do you still want to write `sbatch` files yourself?
 `spython` is meant to improve the experience of python users of Jean-Zay and is an alpha-development stage (optimal for a single user and now open to many).
 
