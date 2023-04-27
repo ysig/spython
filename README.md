@@ -24,8 +24,8 @@ To use `spython` you firstly need to install it in your system, which takes not 
 Currently the project requires manual installation, which can be done in 2 simple steps:
 
 ```python
-wget -O ~/jean-zay.py <url> # installs the main-script
-wget -O - <url> >> ~/.bashrc # installs macros
+wget -O ~/jean-zay.py https://raw.githubusercontent.com/ysig/spython/main/jean-zay/jean-zay.py # installs the main-script
+wget -O - https://raw.githubusercontent.com/ysig/spython/main/jean-zay/.bashrc >> ~/.bashrc # installs macros
 ```
 
 After reopening a terminal you will be exposed to the cli-commands: 
