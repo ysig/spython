@@ -13,7 +13,7 @@ Here is where this script comes in. `spython` is a simple script that does all t
 \*without ctrl-c for practical purposes.
 
 ### Contribute
-We hope that the Jean-Zay team & community get's to converge in high-level scripts or libraries that help improve quick and wasteless integration. Using such scripts high level practices can directly get implemented on a program level (instead of [documentation])(http://www.idris.fr/media/eng/ia/guide_nouvel_utilisateur_ia-eng.pdf) so that Jean-Zay is used much more optimally.
+We hope that the Jean-Zay team & community get's to converge in high-level scripts or libraries that help improve quick and wasteless integration. Using such scripts high level practices can directly get implemented on a program level (instead of [documentation](http://www.idris.fr/media/eng/ia/guide_nouvel_utilisateur_ia-eng.pdf)) so that Jean-Zay is used much more optimally.
 
 As this package sprawls from the user-experience of a certain user it can be limited to their explored use-cases. However you can easily incorporate your use-case to this package, by making pull-requests. If this package becomes useful, documentation and a python installation will be the next steps.
 
