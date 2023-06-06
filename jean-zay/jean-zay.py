@@ -27,8 +27,53 @@ Octo-GPU V100 + RAM CPU 768 GB --partition=gpu_p2l
 Octo-GPU A100 --partition=gpu_p4
 """
 
+ACCELERATE_SCRIPT = """
+import os
+import yaml
+from os.path import join
+
+STORE = os.environ['STORE']
+
+master_port = 12346
+master_addr = os.environ['SLURMD_NODENAME']
+num_machines = int(os.environ['SLURM_NNODES'])
+
+nb_gpus = len(os.environ['SLURM_JOB_GPUS'].split(','))
+num_processes = num_machines * nb_gpus
+
+for machine_rank in range(num_machines):
+    config_accelerate = {
+        'compute_environment': 'LOCAL_MACHINE',
+        'deepspeed_config': {},
+        'distributed_type': 'MULTI_GPU',
+        'downcast_bf16': 'no',
+        'dynamo_backend': 'NO',
+        'fsdp_config': {},
+        'gpu_ids': 'all',
+        'machine_rank': machine_rank,
+        'main_process_ip': master_addr,
+        'main_process_port': master_port,
+        'main_training_function': 'main',
+        'megatron_lm_config': {},
+        'mixed_precision': 'no',
+        'num_machines': num_machines,
+        'num_processes': num_processes,
+        'rdzv_backend': 'static',
+        'same_network': True,
+        'tpu_env': [],
+        'tpu_use_cluster': False,
+        'tpu_use_sudo': False,
+        'use_cpu': False,
+    }
+
+    head_path = join(STORE, 'idris', 'config_accelerate_rank')
+    os.makedirs(head_path, exist_ok=True)
+    with open(join(head_path, str(machine_rank) + ".yaml"), "w") as file:
+        yaml.dump(config_accelerate, file)
+"""
+
 class JeanZay(object):
-    __ORDER__ = ['command', 'debug', 'name', 'tag', 'submission_dir', 'prepost', 'gb', 'ram', 'ngpu', 'ncpu', 'ntasks', 'ntasks_per_node', 'time', 'qos', 'output_file', 'error_file', 'script_file', 'conda_path', 'env', 'preload', 'module_load', 'post_script', 'email', 'account', 'live', 'path']
+    __ORDER__ = ['command', 'hours', 'minutes', 'debug', 'tag', 'name', 'submission_dir', 'prepost', 'gb', 'ram', 'ngpu', 'ncpu', 'ntasks', 'ntasks_per_node', 'qos', 'output_file', 'error_file', 'script_file', 'env', 'conda_path', 'preload', 'module_load', 'post_script', 'email', 'account', 'live', 'path']
     __STATIC__ = [
         '#SBATCH --hint=nomultithread',
         '#SBATCH --distribution=block:block',
@@ -84,7 +129,7 @@ class JeanZay(object):
             if self.gb_ is None:
                 self.a100_ = True
             else:
-                assert self.a100_, 'For ram \'m\' setting only gb should be set to 40 (corresponding to A100)'
+                assert self.a100_, 'For ram \'m\' - gb should be set to 80 (corresponding to A100)'
 
         if self.a100_:
             if val == 'l':
@@ -96,10 +141,10 @@ class JeanZay(object):
                 partition = 'gpu_p5'
             else:
                 assert getattr(self, 'p5', False) == False
+                self.ncpus_max = 48
                 partition = 'gpu_p4'
             
             self.octo = True
-            self.ncpus_max = 48
         elif val == 'l':
             partition = 'gpu_p2s'
             self.octo = True
@@ -121,6 +166,11 @@ class JeanZay(object):
 
 
     def name(self, val):
+        if val is None:
+            if self.tag_ is not None:
+                val = self.tag_
+            else:
+                val = basename(abspath(expanduser('~/')))
         self.args.append(f"--job-name={val}")
 
     def ngpu(self, val):
@@ -148,7 +198,9 @@ class JeanZay(object):
                 val = self.ngpu_
             else:
                 val = 1
-        self.args.append(f"--ntasks={val}")
+
+        if self.command_ != 'accelerate':
+            self.args.append(f"--ntasks={val}")
 
     def ntasks_per_node(self, val):
         if val is None:
@@ -165,31 +217,36 @@ class JeanZay(object):
                 val = self.ncpus_max
             else:
                 if val > self.ncpus_max:
-                    warning.warn(f'adjusting val={val} to {self.ncpus_max}')
-                val = min(self.ncpus_max, val)
+                    warnings.warn(f'adjusting val={val} to {self.ncpus_max}')
+                # val = min(self.ncpus_max, val)
         else:
             assert val != -1, 'ncpus_max is not set we don\'t know the default partition'
 
         self.args.append(f"--cpus-per-task={val}")
 
-    def time(self, val):
-        self.time_ = int(val)
+    def hours(self, val):
+        self.time_hours = int(val)
+
+    def minutes(self, val):
+        self.time_minutes = int(val)
 
     def qos(self):
+        self.time_ = self.time_minutes + 60*self.time_hours
         cpu = ('gpu' if self.ngpu_ > 0 else 'cpu')
         if self.debug_:
             assert self.ngpu_ <= 32, 'During debug max gpus can be less than 32'
             t = 'dev'
-            self.time_ = min(2, self.time_)
-        elif self.time_ > 20:
+            self.time_ = min(2*60, self.time_)
+        elif self.time_ > 20*60:
             t = 't4'
         else:
             t = 't3'
 
-        assert self.time_ <= 100, 'Impossible. For increasing the gpus consult table page 28 here: http://www.idris.fr/media/eng/ia/guide_nouvel_utilisateur_ia-eng.pdf'
+        assert self.time_ <= 100*60, 'Impossible. For increasing the gpus consult table page 28 here: http://www.idris.fr/media/eng/ia/guide_nouvel_utilisateur_ia-eng.pdf'
 
         qos = f"{cpu}-{t}"
-        self.args.append(f"--time={self.time_}:00:00")
+        hrs, mins = str(self.time_//60).zfill(2), str(self.time_%60).zfill(2)
+        self.args.append(f"--time={hrs}:{mins}:00")
         self.args.append(f"--qos=qos_{qos}")
 
     def output_file(self, val):
@@ -210,8 +267,9 @@ class JeanZay(object):
         self.script_file = val
 
     def conda_path(self, val):
-        self.conda_path = (join(expandvars("$WORK"), 'miniconda3') if val is None else val)
-        assert isdir(self.conda_path) or self.conda_env is None, 'Path and env should both exist.'
+        if self.conda_env is not None:
+            self.conda_path = (join(expandvars("$WORK"), 'miniconda3') if val is None else val)
+            assert isdir(self.conda_path) or self.conda_env is None, 'Path and env should both exist.'
 
     def env(self, val):
         self.conda_env = val
@@ -221,6 +279,8 @@ class JeanZay(object):
 
     def module_load(self, val):
         self.modules = val
+        if getattr(self, 'p5', False):
+            self.modules = ['cpuarch/amd'] + [m for m in self.modules if m != 'cpuarch/amd']
 
     def account(self, val):
         if val is None:
@@ -294,16 +354,30 @@ class JeanZay(object):
             self.script += [''] + list(open(self.post_script_, 'r').readlines())
         if self.command_ == 'accelerate':
             assert self.ngpu_ >= 1
-            self.script += [
-                '',
-                'export HOSTNAMES=`scontrol show hostnames "$SLURM_JOB_NODELIST"`',
-                'export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)',
-                'export MASTER_PORT=6000',
-            ]
-            multi_gpu = (' ' if self.ngpu_ <= 1 else ' --multi_gpu ')
-            command_ = f'accelerate launch --num_processes {self.ngpu_}{multi_gpu}--main_process_ip $MASTER_ADDR --main_process_port $MASTER_PORT'
-            if self.nodes > 1:
-                raise ValueError('JZ is not yet configured for accelerate with more than 1 ports')
+            if self.nodes == 1:
+                # keeping for legacy purposes
+                self.script += [
+                    '',
+                    '# saccelerate injected script',
+                    'export HOSTNAMES=`scontrol show hostnames "$SLURM_JOB_NODELIST"`',
+                    'export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)',
+                    'export MASTER_PORT=6000',
+                ]
+                multi_gpu = (' ' if self.ngpu_ <= 1 else ' --multi_gpu ')
+                command_ = f'accelerate launch --num_processes {self.ngpu_}{multi_gpu}--main_process_ip $MASTER_ADDR --main_process_port $MASTER_PORT'
+            else:
+                def install_saccelerate_script():
+                    STORE = os.environ['STORE']
+                    fpath = join(STORE, 'idris', 'accelerate.py')
+                    if not os.path.isfile(fpath):
+                        os.makedirs(join(STORE, 'idris'), exist_ok=True)
+                        with open(fpath, 'w') as f:
+                            f.write(ACCELERATE_SCRIPT)
+
+                install_saccelerate_script()
+                self.script += ['', '# saccelerate injected script', 'python ${STORE}/idris/accelerate.py']
+                command_ = 'accelerate launch --config_file ${STORE}/idris/config_accelerate_rank/${SLURM_PROCID}.yaml'
+
         elif self.command_ == 'python':
             command_ = 'python -u'
         else:
@@ -334,8 +408,9 @@ def argparse(args):
     parser.add_argument('--debug', help='Debug', action='store_true')
     parser.add_argument('--ngpu', '-g', help='Num GPUs', type=int, default=1)
     parser.add_argument('--ncpu', '-c', help='Num CPUs', type=int, default=10)
-    parser.add_argument('--time', '-t', help='Max Time (hrs)', type=int, default=72)
-    parser.add_argument('--name', '-n', help='Job Name', type=str, default=basename(abspath(expanduser('~/'))))
+    parser.add_argument('--hours', '-t', help='Max Time (hrs)', type=int, default=72)
+    parser.add_argument('--minutes', '-m', help='Max Time (mins)', type=int, default=0)
+    parser.add_argument('--name', '-n', help='Job Name', type=str, default=None)
     parser.add_argument('--module-load', '-ml', nargs='+', default=[])
     parser.add_argument('--ntasks', help='Number of MP tasks', default=None)
     parser.add_argument('--ntasks-per-node', help='Number of tasks per node', default=None)
