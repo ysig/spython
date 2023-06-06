@@ -31,6 +31,7 @@ wget -O - https://raw.githubusercontent.com/ysig/spython/main/jean-zay/.bashrc >
 After reopening a terminal you will be exposed to the cli-commands: 
 - `spython`
 - `saccelerate`
+- `sl`
 - (hopefully more to be contributed in the future).
 
 ### Examples
@@ -40,7 +41,7 @@ For all our examples we will suppose that what we really want is to run a `train
 imply append to your python script command `:` adding a set of Jean Zay allocation specific arguments after it:
 
 ```bash
-spython train.py <ARGS> : --ngpu 2 --ncpu 10 --module-load pytorch-gpu/py3/1.11.0 --tag EXP --gb 32 --env geography --post-script jean-zay/server.sh --email <your-email> --name test
+spython train.py <ARGS> : --ngpu 2 --ncpu 10 --module-load pytorch-gpu/py3/1.11.0 --tag EXP --gb 32 --env diffusers --post-script jean-zay/server.sh --email <your-email> --name test
 ```
 
 From this script we can firstly notice that we we allocate 2 gpus and 10 cpus per task.
@@ -57,13 +58,37 @@ will just print a command to run to generate the same environment:
 
 but omitting any in environment commands like running the `server.sh` or module-load.
 
+#### Logging
+
+All our logs can be located by default in the `$SUB` folder.
+To quickly access them we provide an `sl` macro that takes 3 arguments:
+
+```bash
+sl <tag> <k=-1> [--script]
+```
+
+where:
+
+- running `sl` alone prints all available tags
+- adding k (that defaults to -1) indexes the available logs as an index in a chronological list
+- using `--script` prints the sbatch script instead of the log.
+
+
 #### Help
 For more covered functionality below follows the detailed `--help` output of the script:
 
 ```bash
-usage: jean-zay.py [-h] [--gb {16,32,40,80}] [--ram {l,m,h}] [--debug] [--ngpu NGPU] [--ncpu NCPU] [--time TIME] [--name NAME] [--module-load MODULE_LOAD [MODULE_LOAD ...]] [--ntasks NTASKS]
-                   [--ntasks-per-node NTASKS_PER_NODE] [--submission-dir SUBMISSION_DIR] [--error-file ERROR_FILE] [--output-file OUTPUT_FILE] [--script-file SCRIPT_FILE] [--conda_path CONDA_PATH]
-                   [--command COMMAND] [--email EMAIL] [--env ENV] [--preload] [--prepost] [--account ACCOUNT] [--tag TAG] [--path PATH] [--live] [--post-script POST_SCRIPT]
+usage: jean-zay.py [-h] [--gb {16,32,40,80}] [--ram {l,m,h}] [--debug]
+                   [--ngpu NGPU] [--ncpu NCPU] [--hours HOURS]
+                   [--minutes MINUTES] [--name NAME]
+                   [--module-load MODULE_LOAD [MODULE_LOAD ...]]
+                   [--ntasks NTASKS] [--ntasks-per-node NTASKS_PER_NODE]
+                   [--submission-dir SUBMISSION_DIR] [--error-file ERROR_FILE]
+                   [--output-file OUTPUT_FILE] [--script-file SCRIPT_FILE]
+                   [--conda_path CONDA_PATH] [--command COMMAND]
+                   [--email EMAIL] [--env ENV] [--preload] [--prepost]
+                   [--account ACCOUNT] [--tag TAG] [--path PATH] [--live]
+                   [--post-script POST_SCRIPT]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -72,14 +97,18 @@ optional arguments:
   --debug               Debug (default: False)
   --ngpu NGPU, -g NGPU  Num GPUs (default: 1)
   --ncpu NCPU, -c NCPU  Num CPUs (default: 10)
-  --time TIME, -t TIME  Max Time (hrs) (default: 72)
-  --name NAME, -n NAME  Job Name (default: $USER)
+  --hours HOURS, -t HOURS
+                        Max Time (hrs) (default: 72)
+  --minutes MINUTES, -m MINUTES
+                        Max Time (mins) (default: 0)
+  --name NAME, -n NAME  Job Name (default: None)
   --module-load MODULE_LOAD [MODULE_LOAD ...], -ml MODULE_LOAD [MODULE_LOAD ...]
   --ntasks NTASKS       Number of MP tasks (default: None)
   --ntasks-per-node NTASKS_PER_NODE
                         Number of tasks per node (default: None)
   --submission-dir SUBMISSION_DIR
-                        Directory where submission files and outputs are stored (default: None)
+                        Directory where submission files and outputs are
+                        stored (default: None)
   --error-file ERROR_FILE, -e ERROR_FILE
                         Error file (default: log.txt)
   --output-file OUTPUT_FILE, -o OUTPUT_FILE
@@ -91,14 +120,17 @@ optional arguments:
   --command COMMAND     Main command to execute (default: python)
   --email EMAIL         Email of user (default: None)
   --env ENV             Environment (default: None)
-  --preload             Preload - if not set modules wil be purged (default: True)
+  --preload             Preload - if not set modules wil be purged (default:
+                        True)
   --prepost             Set on a prepost node (default: False)
   --account ACCOUNT     Manually set account name (default: None)
   --tag TAG             Set an experiment tag (default: None)
-  --path PATH           Set explicit path from which to start the experiment (default: os.getcwd())
+  --path PATH           Set explicit path from which to start the experiment
+                        (default: /gpfs7kw/linkhome/rech/genlgm01/uoi78rt)
   --live                Debug (default: False)
   --post-script POST_SCRIPT
-                        A script to be executed before the main command (default: None)
+                        A script to be executed before the main command
+                        (default: None)
 ```
 
 #### Behind the scenes.
