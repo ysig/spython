@@ -145,8 +145,9 @@ For example
 On `/gpfsstore/rech/hkt/$USER/submissions/EXP/20230427-153034/` you will find two files: 
 - `log.txt` on the same address will save all std output.
 - `script.txt` contains the `sbatch script`
-	```
-	#!/bin/bash
+
+```bash
+  #!/bin/bash
   #SBATCH --hint=nomultithread
   #SBATCH --distribution=block:block
   #SBATCH --job-name=$USER
